@@ -74,7 +74,6 @@ local result = (function()
         return function(Colors, Players, TweenService, UserInputService, Lighting)
         local IconAssets = {
             shield = 84528813312016,
-            x = 73070135088117,
             key = 128426502701541,
             link = 73034596791310,
             check = 83827110621355
@@ -101,7 +100,7 @@ local result = (function()
             lbl.TextScaled = true
             lbl.Font = Enum.Font.SourceSansBold
             lbl.TextColor3 = color or Color3.fromRGB(255, 255, 255)
-            lbl.Text = ({ shield = "🛡️", key = "🔑", link = "🔗", x = "✕", check = "✓" })[name] or "🔘"
+            lbl.Text = ({ shield = "🛡️", key = "🔑", link = "🔗", check = "✓" })[name] or "🔘"
             return lbl
         end
         return function(self)
@@ -270,31 +269,6 @@ local result = (function()
             brandLogoText.Font = Enum.Font.GothamSemibold
             brandLogoText.ZIndex = 11
             brandLogoText.Parent = brandLogo
-            
-            local closeButton = Instance.new("TextButton")
-            closeButton.Name = "CloseButton"
-            closeButton.Size = UDim2.new(0, 30, 0, 30)
-            closeButton.Position = UDim2.new(1, -40, 0.5, 0)
-            closeButton.AnchorPoint = Vector2.new(0, 0.5)
-            closeButton.BackgroundColor3 = Colors.error
-            closeButton.BackgroundTransparency = 0.8
-            closeButton.BorderSizePixel = 0
-            closeButton.Text = ""
-            closeButton.AutoButtonColor = false
-            closeButton.ZIndex = 11
-            closeButton.Parent = topBar
-            
-            local closeCorner = Instance.new("UICorner")
-            closeCorner.CornerRadius = UDim.new(0, 8)
-            closeCorner.Parent = closeButton
-
-            local closeIcon = createIconImage("x", 16, Colors.textPrimary)
-            closeIcon.AnchorPoint = Vector2.new(0.5, 0.5)
-            closeIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
-            closeIcon.ZIndex = 12
-            closeIcon.Parent = closeButton
-            
-
             local contentArea = Instance.new("Frame")
             contentArea.Name = "ContentArea"
             contentArea.Size = UDim2.new(1, -40, 1, -65)
@@ -564,7 +538,6 @@ local result = (function()
                 statusBar = statusBar,
                 statusText = statusText,
                 inputStroke = inputStroke,
-                closeButton = closeButton,
                 glassOverlay = glassOverlay,
                 glowFrame = glowFrame
             }
@@ -615,22 +588,7 @@ local result = (function()
 
             local function setupAnimations()
                 local elements = self.elements
-                
-                if elements.closeButton then
-                    elements.closeButton.MouseEnter:Connect(function()
-                        TweenService:Create(elements.closeButton, TweenInfo.new(0.2), {
-                            BackgroundTransparency = 0.2
-                        }):Play()
-                    end)
-                    
-                    elements.closeButton.MouseLeave:Connect(function()
-                        TweenService:Create(elements.closeButton, TweenInfo.new(0.2), {
-                            BackgroundTransparency = 0.8
-                        }):Play()
-                    end)
-                end
-                
-                if elements.getLinkButton then
+if elements.getLinkButton then
                     elements.getLinkButton.MouseEnter:Connect(function()
                         TweenService:Create(elements.getLinkButton, TweenInfo.new(0.2), {
                             BackgroundColor3 = Colors.primaryGlow,
@@ -1403,14 +1361,7 @@ local result = (function()
             error("Failed to load UI factory")
             return
         end
-        
-        if self.elements and self.elements.closeButton then
-            table.insert(self._connections, self.elements.closeButton.MouseButton1Click:Connect(function()
-                self:close()
-            end))
-        end
-        
-        if self.elements and self.elements.getLinkButton then
+if self.elements and self.elements.getLinkButton then
             table.insert(self._connections, self.elements.getLinkButton.MouseButton1Click:Connect(function()
                 self:handleGetLink()
             end))
