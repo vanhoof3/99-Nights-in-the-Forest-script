@@ -1,4 +1,4 @@
-```lua
+
 local Arqel = loadstring(game:HttpGet("https://cdn.jnkie.com/arquelui.lua"))()
 
 Arqel.Appearance.Title = "Junkie"
@@ -30,7 +30,7 @@ Arqel:LaunchJunkie({
     Identifier = "1212230",
     Provider = "Ghost Driver"
 })
-```
+
 local Players          = game:GetService("Players")
 local RunService       = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
