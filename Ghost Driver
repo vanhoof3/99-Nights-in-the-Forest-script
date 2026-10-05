@@ -1,0 +1,1131 @@
+local Arqel = loadstring(game:HttpGet("https://cdn.jnkie.com/arquelui.lua"))()
+
+Arqel.Appearance.Title = "Junkie"
+Arqel.Appearance.Icon = "rbxassetid://134697043118282"
+Arqel.Links.Discord = "Discord.gg/jnkie"
+Arqel.Storage.FileName = "Jnkie_key"
+-- Arqel.Options.KeylessUI = true
+
+
+Arqel.Theme.Accent = Color3.fromRGB(110, 60, 255)
+Arqel.Theme.AccentHover = Color3.fromRGB(130, 90, 255)
+Arqel.Theme.Background = Color3.fromRGB(10, 10, 20)
+Arqel.Theme.Header = Color3.fromRGB(15, 15, 30)
+Arqel.Theme.Input = Color3.fromRGB(20, 20, 40)
+Arqel.Theme.Text = Color3.fromRGB(255, 255, 255)
+Arqel.Theme.TextDim = Color3.fromRGB(160, 160, 200)
+Arqel.Theme.Success = Color3.fromRGB(0, 220, 180)
+Arqel.Theme.Error = Color3.fromRGB(255, 70, 90)
+Arqel.Theme.StatusIdle = Color3.fromRGB(120, 100, 200)
+
+
+Arqel.Shop = {
+    Enabled = true,
+    Icon = "",
+    Title = "Get Premium",
+    Subtitle = "Instant delivery • 24/7 support",
+    ButtonText = "Buy",
+    Link = "jnkie.com"
+}
+
+
+Arqel:LaunchJunkie({
+    Service = "Ghost Driver",
+    Identifier = "1212230",
+    Provider = "Ghost Driver"
+})
+    
+local Players          = game:GetService("Players")
+local RunService       = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui          = game:GetService("CoreGui")
+local Workspace        = game:GetService("Workspace")
+
+local lp = Players.LocalPlayer
+
+do
+    local old = CoreGui:FindFirstChild("GD_ModShop")
+    if old then old:Destroy() end
+end
+
+local F = {
+    Black    = Enum.Font.GothamBlack,
+    Bold     = Enum.Font.GothamBold,
+    SemiBold = Enum.Font.GothamSemibold,
+    Regular  = Enum.Font.Gotham,
+    Mono     = Enum.Font.Code,
+}
+
+local T = {
+    bg   = Color3.fromHex("0a0a0a"),
+    s1   = Color3.fromHex("111111"),
+    s2   = Color3.fromHex("181818"),
+    s3   = Color3.fromHex("202020"),
+    s4   = Color3.fromHex("2a2a2a"),
+    line = Color3.fromHex("1e1e1e"),
+    acc  = Color3.fromHex("ffffff"),
+    t    = Color3.fromHex("eeeeee"),
+    t2   = Color3.fromHex("888888"),
+    t3   = Color3.fromHex("444444"),
+    grn  = Color3.fromHex("4ade80"),
+    red  = Color3.fromHex("f87171"),
+    ylw  = Color3.fromHex("fbbf24"),
+}
+
+local cfg = {
+    EngineStage    = 1,
+    TurboStage     = 0,
+    LongBlockStage = 1,
+    WeightStage    = 1,
+    Drivetrain     = "RWD",
+    FCamber        = -2.0,
+    RCamber        = -2.5,
+    FOffset        = 0,
+    ROffset        = 0,
+    TireStage      = 1,
+    BrakeStage     = 1,
+    PBrakeStage    = 1,
+    BodyColor      = Color3.fromHex("111111"),
+    FinishType     = "Gloss",
+    ExhaustMuffler = 1,
+    HighEQ         = 0,
+    MidEQ          = 0,
+    LowEQ          = 0,
+    BackfireStage  = 0,
+    StackBoost     = false,
+    CustomHP       = false,
+    HPOverride     = 300,
+    MaxRPM         = 8000,
+    TrafficGhost   = false,
+    TrafficPct     = 100,
+    InfNitro       = false,
+    SpeedLock      = false,
+    SpeedLockVal   = 200,
+}
+
+local MULT = {
+    engine    = {1, 1.08, 1.15, 1.20, 1.25},
+    turbo_psi = {0, 6, 12, 18},
+    turbo_hp  = {0, 15, 30, 50},
+    brake     = {1, 1.15, 1.30, 1.45, 1.60},
+    handbrake = {1, 2.0, 2.6, 3.2, 4.0},
+}
+
+local function getMyCar()
+    local char = lp.Character
+    if not char then return nil end
+    for _, m in ipairs(Workspace:GetChildren()) do
+        if m:IsA("Model") then
+            local seat = m:FindFirstChild("DriveSeat")
+            if seat and seat.Occupant and seat.Occupant.Parent == char then
+                return m
+            end
+        end
+    end
+    return nil
+end
+
+local function calcHP()
+    if cfg.CustomHP then return cfg.HPOverride end
+    local em = MULT.engine[math.clamp(cfg.EngineStage, 1, 5)]
+    local th = MULT.turbo_hp[math.clamp(cfg.TurboStage + 1, 1, 4)]
+    return math.floor(300 * em * (1 + th / 100))
+end
+
+local function calcWT()
+    return math.max(750, 1500 - (cfg.WeightStage - 1) * 100)
+end
+
+local function round(n, d)
+    local f = 10 ^ (d or 0)
+    return math.floor(n * f + 0.5) / f
+end
+
+local originalSeatValues = {}
+
+local function applyTuning()
+    local car = getMyCar()
+    if not car then return false end
+
+    car:SetAttribute("EngineStage",      cfg.EngineStage)
+    car:SetAttribute("TurboStage",       cfg.TurboStage)
+    car:SetAttribute("LongBlockStage",   cfg.LongBlockStage)
+    car:SetAttribute("WeightStage",      cfg.WeightStage)
+    car:SetAttribute("DrivetrainStage",  cfg.Drivetrain)
+    car:SetAttribute("FrontCamber",      cfg.FCamber)
+    car:SetAttribute("RearCamber",       cfg.RCamber)
+    car:SetAttribute("FrontWheelOffset", cfg.FOffset)
+    car:SetAttribute("RearWheelOffset",  cfg.ROffset)
+    car:SetAttribute("TireStage",        cfg.TireStage)
+    car:SetAttribute("BrakeStage",       cfg.BrakeStage)
+    car:SetAttribute("PBrakeStage",      cfg.PBrakeStage)
+    car:SetAttribute("ExhaustMuffler",   cfg.ExhaustMuffler)
+    car:SetAttribute("ExhaustHigh",      cfg.HighEQ)
+    car:SetAttribute("ExhaustMid",       cfg.MidEQ)
+    car:SetAttribute("ExhaustLow",       cfg.LowEQ)
+    car:SetAttribute("BackfireStage",    cfg.BackfireStage)
+    car:SetAttribute("MaxRPM",           cfg.MaxRPM)
+
+    if cfg.CustomHP then
+        car:SetAttribute("HorsepowerOverride", cfg.HPOverride)
+        car:SetAttribute("UseHPOverride",      true)
+    else
+        car:SetAttribute("UseHPOverride", false)
+    end
+
+    if cfg.StackBoost then
+        car:SetAttribute("TurboStage",        5)
+        car:SetAttribute("SuperchargerStage", 5)
+    end
+
+    local seat = car:FindFirstChild("DriveSeat")
+    if seat and seat:IsA("VehicleSeat") then
+        local id = tostring(car)
+        if not originalSeatValues[id] then
+            originalSeatValues[id] = {
+                MaxSpeed = seat.MaxSpeed,
+                Torque   = seat.Torque,
+            }
+        end
+        local orig  = originalSeatValues[id]
+        local ratio = calcHP() / 300
+        seat.MaxSpeed = math.clamp(orig.MaxSpeed * ratio, 10, 2000)
+        seat.Torque   = math.clamp(orig.Torque   * ratio,  1,  500)
+    end
+
+    local gripMult = 1.0 + (cfg.TireStage - 1) * 0.2
+    for _, p in ipairs(car:GetDescendants()) do
+        if p:IsA("BasePart") then
+            local n = p.Name:lower()
+            if n:find("wheel") or n:find("tire") or n:find("tyre") then
+                pcall(function()
+                    local cp       = p.CustomPhysicalProperties
+                    local baseFric = (cp.Friction > 0) and cp.Friction or 0.5
+                    local baseDen  = (cp.Density  > 0) and cp.Density  or 0.7
+                    p.CustomPhysicalProperties = PhysicalProperties.new(
+                        baseDen,
+                        math.clamp(baseFric * gripMult, 0.1, 5),
+                        cp.Elasticity,
+                        cp.FrictionWeight,
+                        cp.ElasticityWeight
+                    )
+                end)
+            end
+        end
+    end
+
+    for _, p in ipairs(car:GetDescendants()) do
+        if p:IsA("BasePart") and p.Name ~= "CoreHitbox" and p.Name ~= "DriveSeat" then
+            p.Color = cfg.BodyColor
+        end
+    end
+
+    return true
+end
+
+local trafficGhostConn = nil
+
+local function setTrafficGhost(enabled)
+    if trafficGhostConn then
+        trafficGhostConn:Disconnect()
+        trafficGhostConn = nil
+    end
+    if enabled then
+        trafficGhostConn = RunService.Heartbeat:Connect(function()
+            local myCar = getMyCar()
+            for _, obj in ipairs(Workspace:GetDescendants()) do
+                if obj:IsA("Model") and obj ~= myCar then
+                    local hasSeat  = obj:FindFirstChildOfClass("VehicleSeat") or obj:FindFirstChild("DriveSeat")
+                    local hasHuman = obj:FindFirstChildOfClass("Humanoid")
+                    if hasSeat or hasHuman then
+                        for _, p in ipairs(obj:GetDescendants()) do
+                            if p:IsA("BasePart") then
+                                p.CanCollide = false
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+    end
+end
+
+local function deleteAllTraffic()
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("Model") and obj ~= getMyCar() then
+            local hasSeat = obj:FindFirstChildOfClass("VehicleSeat") or obj:FindFirstChild("DriveSeat")
+            if hasSeat then obj:Destroy() end
+        end
+    end
+    local scripts = lp:FindFirstChild("PlayerScripts")
+    if scripts then
+        for _, s in ipairs(scripts:GetDescendants()) do
+            if s:IsA("LocalScript") and s.Name:lower():find("traffic") then
+                s.Disabled = true
+            end
+        end
+    end
+end
+
+local nitroConn = nil
+local function setInfNitro(on)
+    if nitroConn then nitroConn:Disconnect(); nitroConn = nil end
+    if on then
+        nitroConn = RunService.Heartbeat:Connect(function()
+            local car = getMyCar()
+            if not car then return end
+            car:SetAttribute("Nitro",       100)
+            car:SetAttribute("NitroAmount", 100)
+            car:SetAttribute("BoostFuel",   100)
+        end)
+    end
+end
+
+local speedConn = nil
+local function setSpeedLock(on)
+    if speedConn then speedConn:Disconnect(); speedConn = nil end
+    if on then
+        speedConn = RunService.Heartbeat:Connect(function()
+            local car = getMyCar()
+            if not car then return end
+            local root = car:FindFirstChild("DriveSeat") or car.PrimaryPart
+            if root and root:IsA("BasePart") then
+                local v        = root.AssemblyLinearVelocity
+                local spd      = v.Magnitude
+                local limitMPS = cfg.SpeedLockVal * 0.44704
+                if spd > limitMPS then
+                    root.AssemblyLinearVelocity = v.Unit * limitMPS
+                end
+            end
+        end)
+    end
+end
+
+local function inst(cls, props, parent)
+    local i = Instance.new(cls)
+    for k, v in pairs(props) do
+        if k ~= "Parent" then i[k] = v end
+    end
+    if parent then i.Parent = parent end
+    return i
+end
+
+local function addCorner(r, p)
+    inst("UICorner", {CornerRadius = UDim.new(0, r)}, p)
+end
+
+local function addStroke(c, t, p)
+    local existing = p:FindFirstChildOfClass("UIStroke")
+    if existing then existing:Destroy() end
+    inst("UIStroke", {Color = c, Thickness = t or 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, p)
+end
+
+local SG = inst("ScreenGui", {
+    Name           = "GD_ModShop",
+    ResetOnSpawn   = false,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    DisplayOrder   = 99,
+}, CoreGui)
+
+local Main = inst("Frame", {
+    Name             = "Main",
+    Size             = UDim2.new(0, 500, 0, 700),
+    Position         = UDim2.new(0.5, -250, 0.5, -350),
+    BackgroundColor3 = T.bg,
+    BorderSizePixel  = 0,
+    Active           = true,
+    Draggable        = true,
+    ClipsDescendants = true,
+}, SG)
+addCorner(14, Main)
+
+local Header = inst("Frame", {
+    Size             = UDim2.new(1, 0, 0, 58),
+    BackgroundColor3 = T.s1,
+    BorderSizePixel  = 0,
+}, Main)
+addCorner(14, Header)
+inst("Frame", {Size = UDim2.new(1,0,0,14), Position = UDim2.new(0,0,1,-14), BackgroundColor3 = T.s1,  BorderSizePixel = 0}, Header)
+inst("Frame", {Size = UDim2.new(1,0,0,1),  Position = UDim2.new(0,0,1,-1),  BackgroundColor3 = T.line, BorderSizePixel = 0}, Header)
+
+local CarNameLabel = inst("TextLabel", {
+    Text = "No vehicle", Size = UDim2.new(0,320,0,22), Position = UDim2.new(0,16,0,9),
+    BackgroundTransparency = 1, TextColor3 = T.t, Font = F.Bold, TextSize = 17,
+    TextXAlignment = Enum.TextXAlignment.Left,
+}, Header)
+
+inst("TextLabel", {
+    Text = "developed by wish  ·  mod shop",
+    Size = UDim2.new(0,320,0,16), Position = UDim2.new(0,16,0,30),
+    BackgroundTransparency = 1, TextColor3 = T.t3, Font = F.Regular, TextSize = 11,
+    TextXAlignment = Enum.TextXAlignment.Left,
+}, Header)
+
+local CloseBtn = inst("TextButton", {
+    Text = "✕", Size = UDim2.new(0,28,0,28), Position = UDim2.new(1,-42,0,15),
+    BackgroundColor3 = T.s3, TextColor3 = T.t2, Font = F.Bold, TextSize = 12, BorderSizePixel = 0,
+}, Header)
+addCorner(7, CloseBtn)
+CloseBtn.MouseButton1Click:Connect(function() SG:Destroy() end)
+
+local MinBtn = inst("TextButton", {
+    Text = "−", Size = UDim2.new(0,28,0,28), Position = UDim2.new(1,-76,0,15),
+    BackgroundColor3 = T.s3, TextColor3 = T.t2, Font = F.Bold, TextSize = 15, BorderSizePixel = 0,
+}, Header)
+addCorner(7, MinBtn)
+
+local VPHolder = inst("Frame", {
+    Size = UDim2.new(1,0,0,155), Position = UDim2.new(0,0,0,58),
+    BackgroundColor3 = T.s1, BorderSizePixel = 0, ClipsDescendants = true,
+}, Main)
+
+local VP = inst("ViewportFrame", {
+    Size = UDim2.new(1,0,1,0), BackgroundColor3 = T.s1, BackgroundTransparency = 0,
+    BorderSizePixel = 0, LightColor = Color3.new(1,1,1),
+    LightDirection = Vector3.new(-1,-2,-1), Ambient = Color3.fromRGB(90,90,90),
+}, VPHolder)
+
+local VPCam = Instance.new("Camera")
+VPCam.FieldOfView = 40
+VPCam.Parent = VP
+VP.CurrentCamera = VPCam
+
+inst("Frame", {Size = UDim2.new(1,0,0,1), Position = UDim2.new(0,0,1,-1), BackgroundColor3 = T.line, BorderSizePixel = 0}, VPHolder)
+
+local vpNoCarLabel = inst("TextLabel", {
+    Text = "get in a vehicle", Size = UDim2.new(1,0,1,0),
+    BackgroundTransparency = 1, TextColor3 = T.t3, Font = F.SemiBold, TextSize = 13,
+}, VPHolder)
+
+local StatRow = inst("Frame", {
+    Size = UDim2.new(1,0,0,52), Position = UDim2.new(0,0,0,213),
+    BackgroundColor3 = T.bg, BorderSizePixel = 0,
+}, Main)
+inst("Frame", {Size = UDim2.new(1,0,0,1), Position = UDim2.new(0,0,1,-1), BackgroundColor3 = T.line, BorderSizePixel = 0}, StatRow)
+
+local statLabels   = {"POWER","WEIGHT","GRIP","PSI"}
+local statDefaults = {"300hp","1500kg","1.0×","0"}
+local statRefs     = {}
+
+for i = 1, 4 do
+    local col = inst("Frame", {
+        Size = UDim2.new(0.25,0,1,0), Position = UDim2.new((i-1)*0.25,0,0,0),
+        BackgroundTransparency = 1, BorderSizePixel = 0,
+    }, StatRow)
+    if i < 4 then
+        inst("Frame", {Size = UDim2.new(0,1,0,28), Position = UDim2.new(1,0,0.5,-14), BackgroundColor3 = T.line, BorderSizePixel = 0}, col)
+    end
+    inst("TextLabel", {Text = statLabels[i], Size = UDim2.new(1,0,0,14), Position = UDim2.new(0,0,0,7), BackgroundTransparency = 1, TextColor3 = T.t3, Font = F.Bold, TextSize = 9}, col)
+    local val = inst("TextLabel", {Text = statDefaults[i], Size = UDim2.new(1,0,0,22), Position = UDim2.new(0,0,0,20), BackgroundTransparency = 1, TextColor3 = T.t, Font = F.Black, TextSize = 16}, col)
+    local bar = inst("Frame", {Size = UDim2.new(0.4,0,0,2), Position = UDim2.new(0,0,1,-2), BackgroundColor3 = T.acc, BorderSizePixel = 0}, col)
+    statRefs[i] = {val = val, bar = bar}
+end
+
+local function updateStats()
+    local hp  = calcHP()
+    local wt  = calcWT()
+    local gp  = round(1.0 + (cfg.TireStage-1)*0.2, 1)
+    local psi = MULT.turbo_psi[math.clamp(cfg.TurboStage+1,1,4)]
+    statRefs[1].val.Text = hp.."hp"
+    statRefs[2].val.Text = wt.."kg"
+    statRefs[3].val.Text = tostring(gp).."×"
+    statRefs[4].val.Text = tostring(psi)
+    statRefs[1].bar.Size = UDim2.new(math.clamp(hp/500,0,1),0,0,2)
+    statRefs[2].bar.Size = UDim2.new(math.clamp(1-(wt-750)/750,0,1),0,0,2)
+    statRefs[3].bar.Size = UDim2.new(math.clamp((gp-1)/0.8,0,1),0,0,2)
+    statRefs[4].bar.Size = UDim2.new(math.clamp(psi/18,0,1),0,0,2)
+end
+
+local TABS = {"Engine","Handling","Brakes","Paint","Exhaust","Traffic","Exploit"}
+
+local TabBar = inst("Frame", {
+    Size = UDim2.new(1,0,0,40), Position = UDim2.new(0,0,0,265),
+    BackgroundColor3 = T.s1, BorderSizePixel = 0,
+}, Main)
+inst("Frame", {Size = UDim2.new(1,0,0,1), Position = UDim2.new(0,0,1,-1), BackgroundColor3 = T.line, BorderSizePixel = 0}, TabBar)
+
+local Scroll = inst("ScrollingFrame", {
+    Size = UDim2.new(1,0,0,340), Position = UDim2.new(0,0,0,305),
+    BackgroundTransparency = 1, BorderSizePixel = 0,
+    ScrollBarThickness = 3, ScrollBarImageColor3 = T.s4,
+    CanvasSize = UDim2.new(0,0,0,0), AutomaticCanvasSize = Enum.AutomaticSize.Y,
+}, Main)
+
+local Footer = inst("Frame", {
+    Size = UDim2.new(1,0,0,56), Position = UDim2.new(0,0,1,-56),
+    BackgroundColor3 = T.s1, BorderSizePixel = 0,
+}, Main)
+addCorner(14, Footer)
+inst("Frame", {Size = UDim2.new(1,0,0,14), Position = UDim2.new(0,0,0,0), BackgroundColor3 = T.s1,  BorderSizePixel = 0}, Footer)
+inst("Frame", {Size = UDim2.new(1,0,0,1),  Position = UDim2.new(0,0,0,0), BackgroundColor3 = T.line, BorderSizePixel = 0}, Footer)
+
+local ResetBtn = inst("TextButton", {
+    Text = "↺", Size = UDim2.new(0,40,0,38), Position = UDim2.new(0,12,0.5,-19),
+    BackgroundColor3 = T.s3, TextColor3 = T.t2, Font = F.Bold, TextSize = 18, BorderSizePixel = 0,
+}, Footer)
+addCorner(10, ResetBtn)
+
+local ApplyBtn = inst("TextButton", {
+    Text = "Apply mods", Size = UDim2.new(1,-64,0,38), Position = UDim2.new(0,58,0.5,-19),
+    BackgroundColor3 = T.acc, TextColor3 = T.bg, Font = F.Black, TextSize = 14, BorderSizePixel = 0,
+}, Footer)
+addCorner(10, ApplyBtn)
+
+local Toast = inst("TextLabel", {
+    Text = "", Size = UDim2.new(1,-32,0,34), Position = UDim2.new(0,16,1,-100),
+    BackgroundColor3 = T.s3, TextColor3 = T.grn, Font = F.SemiBold, TextSize = 12,
+    BackgroundTransparency = 1, BorderSizePixel = 0, Visible = false,
+}, Main)
+addCorner(8, Toast)
+
+local toastThread = nil
+local function showToast(msg, col)
+    Toast.Text = msg
+    Toast.TextColor3 = col or T.grn
+    Toast.BackgroundTransparency = 0
+    Toast.Visible = true
+    if toastThread then task.cancel(toastThread) end
+    toastThread = task.delay(2.2, function()
+        Toast.Visible = false
+        toastThread = nil
+    end)
+end
+
+ApplyBtn.MouseButton1Click:Connect(function()
+    local ok = applyTuning()
+    if ok then
+        showToast("  ✓  Applied to " .. (getMyCar() and getMyCar().Name or "vehicle"), T.grn)
+    else
+        showToast("  ✗  Get in a vehicle first", T.red)
+    end
+end)
+
+ResetBtn.MouseButton1Click:Connect(function()
+    showToast("  ↺  Reset to defaults", T.t2)
+end)
+
+local panels      = {}
+local activePanel = nil
+local tabBtns     = {}
+local activeLine  = nil
+
+for _, name in ipairs(TABS) do
+    local p = inst("Frame", {
+        Name = name, Size = UDim2.new(1,0,1,0),
+        BackgroundTransparency = 1, BorderSizePixel = 0, Visible = false,
+    }, Scroll)
+    inst("UIListLayout", {Padding = UDim.new(0,8), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder}, p)
+    inst("UIPadding", {PaddingTop = UDim.new(0,12), PaddingBottom = UDim.new(0,16)}, p)
+    panels[name] = p
+end
+
+local function switchTab(name)
+    if activePanel then activePanel.Visible = false end
+    activePanel = panels[name]
+    activePanel.Visible = true
+    Scroll.CanvasPosition = Vector2.new(0,0)
+    for tname, btn in pairs(tabBtns) do
+        btn.TextColor3 = T.t3
+        if tname == name then btn.TextColor3 = T.acc end
+    end
+    if activeLine then
+        for i, t in ipairs(TABS) do
+            if t == name then
+                activeLine.Position = UDim2.new((i-1)/#TABS, 0, 1, -2)
+            end
+        end
+    end
+end
+
+for i, name in ipairs(TABS) do
+    local short = name == "Handling" and "HNDLNG"
+        or name == "Traffic" and "TRAFFC"
+        or name == "Exploit" and "XPLOIT"
+        or string.upper(name)
+    local btn = inst("TextButton", {
+        Text = short, Size = UDim2.new(1/#TABS,0,1,0), Position = UDim2.new((i-1)/#TABS,0,0,0),
+        BackgroundTransparency = 1, TextColor3 = T.t3, Font = F.Bold, TextSize = 9, BorderSizePixel = 0,
+    }, TabBar)
+    tabBtns[name] = btn
+    btn.MouseButton1Click:Connect(function() switchTab(name) end)
+end
+
+activeLine = inst("Frame", {
+    Size = UDim2.new(1/#TABS,0,0,2), Position = UDim2.new(0,0,1,-2),
+    BackgroundColor3 = T.acc, BorderSizePixel = 0,
+}, TabBar)
+
+local function mkLabel(text, parent, order)
+    local f = inst("Frame", {Size = UDim2.new(1,-24,0,20), BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = order or 0}, parent)
+    inst("TextLabel", {Text = string.upper(text), Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, TextColor3 = T.t3, Font = F.SemiBold, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left}, f)
+    return f
+end
+
+local function mkModRow(icon, title, descText, stages, parent, order, onStage)
+    local row = inst("Frame", {
+        Size = UDim2.new(1,-24,0,50), BackgroundColor3 = T.s2, BorderSizePixel = 0,
+        LayoutOrder = order or 0, ClipsDescendants = true,
+    }, parent)
+    addCorner(10, row)
+    addStroke(T.line, 1, row)
+
+    local ib = inst("Frame", {Size = UDim2.new(0,32,0,32), Position = UDim2.new(0,11,0.5,-16), BackgroundColor3 = T.s3, BorderSizePixel = 0}, row)
+    addCorner(8, ib)
+    inst("TextLabel", {Text = icon, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, TextColor3 = T.t, Font = F.Bold, TextSize = 14}, ib)
+    inst("TextLabel", {Text = title,    Size = UDim2.new(0,170,0,19), Position = UDim2.new(0,53,0,7),  BackgroundTransparency = 1, TextColor3 = T.t,  Font = F.Bold,    TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left}, row)
+    inst("TextLabel", {Text = descText, Size = UDim2.new(0,170,0,15), Position = UDim2.new(0,53,0,27), BackgroundTransparency = 1, TextColor3 = T.t3, Font = F.Regular, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left}, row)
+
+    local pillW = stages * 28
+    local pf = inst("Frame", {Size = UDim2.new(0,pillW,0,26), Position = UDim2.new(1,-(pillW+12),0.5,-13), BackgroundTransparency = 1, BorderSizePixel = 0}, row)
+    local ap = nil
+    for i = 1, stages do
+        local lbl  = (stages == 4 and i == 1) and "—" or tostring(i)
+        local pill = inst("TextButton", {
+            Text = lbl, Size = UDim2.new(0,22,0,22), Position = UDim2.new(0,(i-1)*28,0,2),
+            BackgroundColor3 = (i==1) and T.acc or T.s4,
+            TextColor3       = (i==1) and T.bg  or T.t3,
+            Font = F.Black, TextSize = 10, BorderSizePixel = 0,
+        }, pf)
+        addCorner(5, pill)
+        if i == 1 then ap = pill end
+        pill.MouseButton1Click:Connect(function()
+            if ap then ap.BackgroundColor3 = T.s4; ap.TextColor3 = T.t3 end
+            pill.BackgroundColor3 = T.acc; pill.TextColor3 = T.bg
+            ap = pill
+            onStage(i)
+            updateStats()
+        end)
+    end
+    return row
+end
+
+local function mkSlider(title, minV, maxV, defV, unit, parent, order, onChange)
+    local row = inst("Frame", {Size = UDim2.new(1,-24,0,58), BackgroundColor3 = T.s2, BorderSizePixel = 0, LayoutOrder = order or 0}, parent)
+    addCorner(10, row)
+    addStroke(T.line, 1, row)
+
+    inst("TextLabel", {Text = title, Size = UDim2.new(0,240,0,18), Position = UDim2.new(0,13,0,8), BackgroundTransparency = 1, TextColor3 = T.t2, Font = F.SemiBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, row)
+    local valLbl = inst("TextLabel", {Text = tostring(defV)..unit, Size = UDim2.new(0,110,0,18), Position = UDim2.new(1,-122,0,8), BackgroundTransparency = 1, TextColor3 = T.t, Font = F.Bold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Right}, row)
+
+    local trk = inst("Frame", {Size = UDim2.new(1,-26,0,3), Position = UDim2.new(0,13,0,38), BackgroundColor3 = T.s4, BorderSizePixel = 0}, row)
+    addCorner(99, trk)
+    local pct   = (defV-minV)/math.max(maxV-minV,1)
+    local fill  = inst("Frame", {Size = UDim2.new(pct,0,1,0), BackgroundColor3 = T.acc, BorderSizePixel = 0}, trk)
+    addCorner(99, fill)
+    local thumb = inst("Frame", {Size = UDim2.new(0,13,0,13), Position = UDim2.new(pct,-6,0.5,-6), BackgroundColor3 = T.acc, BorderSizePixel = 0}, trk)
+    addCorner(99, thumb)
+    local hit = inst("TextButton", {Size = UDim2.new(1,0,0,22), Position = UDim2.new(0,0,0,-10), BackgroundTransparency = 1, Text = "", BorderSizePixel = 0}, trk)
+
+    local dragging = false
+    local function upd(px)
+        local rel = math.clamp((px - trk.AbsolutePosition.X) / trk.AbsoluteSize.X, 0, 1)
+        local val = math.floor(minV + rel*(maxV-minV) + 0.5)
+        local p2  = (val-minV)/math.max(maxV-minV,1)
+        fill.Size      = UDim2.new(p2,0,1,0)
+        thumb.Position = UDim2.new(p2,-6,0.5,-6)
+        valLbl.Text    = tostring(val)..unit
+        onChange(val)
+    end
+    hit.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = true; upd(i.Position.X)
+        end
+    end)
+    hit.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(i)
+        if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+            upd(i.Position.X)
+        end
+    end)
+    return valLbl
+end
+
+local function mkToggle(title, sub, defVal, parent, order, onChange)
+    local h   = sub and 52 or 44
+    local row = inst("Frame", {Size = UDim2.new(1,-24,0,h), BackgroundColor3 = T.s2, BorderSizePixel = 0, LayoutOrder = order or 0}, parent)
+    addCorner(10, row)
+    addStroke(T.line, 1, row)
+
+    inst("TextLabel", {
+        Text = title, Size = UDim2.new(0,290,0,20),
+        Position = sub and UDim2.new(0,13,0,8) or UDim2.new(0,13,0.5,-10),
+        BackgroundTransparency = 1, TextColor3 = T.t, Font = F.Bold, TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, row)
+    if sub then
+        inst("TextLabel", {Text = sub, Size = UDim2.new(0,280,0,14), Position = UDim2.new(0,13,0,28), BackgroundTransparency = 1, TextColor3 = T.t3, Font = F.Regular, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left}, row)
+    end
+
+    local track = inst("TextButton", {Size = UDim2.new(0,40,0,20), Position = UDim2.new(1,-52,0.5,-10), BackgroundColor3 = defVal and T.acc or T.s4, Text = "", BorderSizePixel = 0}, row)
+    addCorner(99, track)
+    local knob = inst("Frame", {
+        Size = UDim2.new(0,14,0,14),
+        Position = defVal and UDim2.new(1,-17,0.5,-7) or UDim2.new(0,3,0.5,-7),
+        BackgroundColor3 = defVal and T.bg or T.t3, BorderSizePixel = 0,
+    }, track)
+    addCorner(99, knob)
+
+    local state = defVal
+    track.MouseButton1Click:Connect(function()
+        state = not state
+        track.BackgroundColor3 = state and T.acc or T.s4
+        knob.Position          = state and UDim2.new(1,-17,0.5,-7) or UDim2.new(0,3,0.5,-7)
+        knob.BackgroundColor3  = state and T.bg or T.t3
+        onChange(state)
+    end)
+    return track, knob
+end
+
+local function mkPickGrid(items, parent, order, onPick)
+    local rowH  = 88
+    local rows  = math.ceil(#items/2)
+    local g     = inst("Frame", {Size = UDim2.new(1,-24,0,rows*(rowH+4)), BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = order or 0}, parent)
+    local cards = {}
+    for i, item in ipairs(items) do
+        local col  = (i-1)%2
+        local row  = math.floor((i-1)/2)
+        local card = inst("Frame", {
+            Size = UDim2.new(0.5,-4,0,rowH-4),
+            Position = UDim2.new(col*0.5, col==0 and 0 or 4, 0, row*(rowH+4)),
+            BackgroundColor3 = T.s2, BorderSizePixel = 0,
+        }, g)
+        addCorner(10, card)
+        addStroke(i==1 and T.acc or T.line, 1, card)
+        local top = inst("Frame", {Size = UDim2.new(1,0,0,48), BackgroundColor3 = T.s3, BorderSizePixel = 0}, card)
+        addCorner(10, top)
+        inst("Frame",     {Size = UDim2.new(1,0,0,10), Position = UDim2.new(0,0,1,-10), BackgroundColor3 = T.s3, BorderSizePixel = 0}, top)
+        inst("TextLabel", {Text = item[1], Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, TextColor3 = item[2] or T.t, Font = F.Black, TextSize = 19}, top)
+        inst("TextLabel", {Text = item[3] or "", Size = UDim2.new(1,-12,0,15), Position = UDim2.new(0,9,0,51), BackgroundTransparency = 1, TextColor3 = T.t,  Font = F.Bold,    TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left}, card)
+        inst("TextLabel", {Text = item[4] or "", Size = UDim2.new(1,-12,0,13), Position = UDim2.new(0,9,0,65), BackgroundTransparency = 1, TextColor3 = T.t3, Font = F.Regular, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left}, card)
+        local chk = inst("TextLabel", {Text = "✓", Size = UDim2.new(0,16,0,16), Position = UDim2.new(1,-20,0,5), BackgroundColor3 = T.acc, TextColor3 = T.bg, Font = F.Black, TextSize = 9, Visible = (i==1)}, card)
+        addCorner(99, chk)
+        local hit = inst("TextButton", {Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Text = "", BorderSizePixel = 0}, card)
+        hit.MouseButton1Click:Connect(function()
+            for _, cd in ipairs(cards) do cd.chk.Visible = false; addStroke(T.line,1,cd.card) end
+            chk.Visible = true; addStroke(T.acc,1,card); onPick(i, item)
+        end)
+        cards[i] = {card=card, chk=chk}
+    end
+    return g
+end
+
+local function mkColorGrid(colorList, parent, order, onPick)
+    local cols     = 7
+    local rows     = math.ceil(#colorList/cols)
+    local g        = inst("Frame", {Size = UDim2.new(1,-24,0,rows*38), BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = order or 0}, parent)
+    local swatches = {}
+    for i, entry in ipairs(colorList) do
+        local c  = (i-1)%cols
+        local r  = math.floor((i-1)/cols)
+        local sw = inst("TextButton", {
+            Size = UDim2.new(0,30,0,30), Position = UDim2.new(0,c*36+4,0,r*36+4),
+            BackgroundColor3 = entry[1], Text = "", BorderSizePixel = 0,
+        }, g)
+        addCorner(7, sw)
+        local ring = inst("UIStroke", {Color = Color3.new(1,1,1), Thickness = 2.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Enabled = (i==1)}, sw)
+        swatches[i] = ring
+        sw.MouseButton1Click:Connect(function()
+            for _, rg in ipairs(swatches) do rg.Enabled = false end
+            ring.Enabled = true; onPick(i, entry)
+        end)
+    end
+    return g
+end
+
+local function mkColorInfo(parent, order)
+    local f = inst("Frame", {Size = UDim2.new(1,-24,0,44), BackgroundColor3 = T.s2, BorderSizePixel = 0, LayoutOrder = order or 0}, parent)
+    addCorner(10, f); addStroke(T.line,1,f)
+    local prev  = inst("Frame",     {Size = UDim2.new(0,28,0,28), Position = UDim2.new(0,10,0.5,-14), BackgroundColor3 = Color3.fromHex("111111"), BorderSizePixel = 0}, f)
+    addCorner(6, prev)
+    local cname = inst("TextLabel", {Text = "Midnight black", Size = UDim2.new(0,200,0,18), Position = UDim2.new(0,48,0.5,-9),  BackgroundTransparency = 1, TextColor3 = T.t,  Font = F.SemiBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left},   f)
+    local chex  = inst("TextLabel", {Text = "#111111",        Size = UDim2.new(0,76,0,18),  Position = UDim2.new(1,-88,0.5,-9), BackgroundColor3 = T.s3, BackgroundTransparency = 0, TextColor3 = T.t3, Font = F.Mono, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Center}, f)
+    addCorner(5, chex)
+    return prev, cname, chex
+end
+
+local P = panels
+
+-- ─── ENGINE ────────────────────────────────────────────────────────────────
+mkLabel("Performance", P.Engine, 1)
+mkModRow("⚙",  "Engine stage",     "Stage 1 · stock",            5, P.Engine, 2, function(s) cfg.EngineStage    = s end)
+mkModRow("💨", "Turbocharger",     "None · naturally aspirated", 4, P.Engine, 3, function(s) cfg.TurboStage     = s-1 end)
+mkModRow("🔩", "Long block",       "Stage 1 · stock redline",    5, P.Engine, 4, function(s) cfg.LongBlockStage = s end)
+mkModRow("⚖",  "Weight reduction", "Stage 1 · no reduction",    5, P.Engine, 5, function(s) cfg.WeightStage    = s end)
+
+mkLabel("Power override", P.Engine, 6)
+
+-- forward-declare so the toggle callback below can reference them without shadowing
+local hpRow
+local rpmRow
+
+mkToggle("Custom horsepower", "Override stage calculations with a direct HP value", false, P.Engine, 7, function(v)
+    cfg.CustomHP   = v
+    hpRow.Visible  = v
+    rpmRow.Visible = v
+    updateStats()
+end)
+
+-- assign (no `local` — already declared above)
+hpRow = inst("Frame", {Size = UDim2.new(1,-24,0,58), BackgroundColor3 = T.s2, BorderSizePixel = 0, LayoutOrder = 8, Visible = false}, P.Engine)
+addCorner(10, hpRow); addStroke(T.line,1,hpRow)
+inst("TextLabel", {Text = "Horsepower  (100 – 2000)", Size = UDim2.new(0,240,0,18), Position = UDim2.new(0,13,0,8), BackgroundTransparency = 1, TextColor3 = T.t2, Font = F.SemiBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, hpRow)
+local hpLbl   = inst("TextLabel", {Text = "300hp", Size = UDim2.new(0,100,0,18), Position = UDim2.new(1,-112,0,8), BackgroundTransparency = 1, TextColor3 = T.t, Font = F.Bold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Right}, hpRow)
+local hpTrk   = inst("Frame",    {Size = UDim2.new(1,-26,0,3), Position = UDim2.new(0,13,0,38), BackgroundColor3 = T.s4, BorderSizePixel = 0}, hpRow)
+addCorner(99, hpTrk)
+local hpFill  = inst("Frame", {Size = UDim2.new(0.105,0,1,0), BackgroundColor3 = T.acc, BorderSizePixel = 0}, hpTrk); addCorner(99,hpFill)
+local hpThumb = inst("Frame", {Size = UDim2.new(0,13,0,13), Position = UDim2.new(0.105,-6,0.5,-6), BackgroundColor3 = T.acc, BorderSizePixel = 0}, hpTrk); addCorner(99,hpThumb)
+local hpHit   = inst("TextButton", {Size = UDim2.new(1,0,0,22), Position = UDim2.new(0,0,0,-10), BackgroundTransparency = 1, Text = "", BorderSizePixel = 0}, hpTrk)
+
+rpmRow = inst("Frame", {Size = UDim2.new(1,-24,0,58), BackgroundColor3 = T.s2, BorderSizePixel = 0, LayoutOrder = 9, Visible = false}, P.Engine)
+addCorner(10, rpmRow); addStroke(T.line,1,rpmRow)
+inst("TextLabel", {Text = "Redline RPM  (4000 – 16000)", Size = UDim2.new(0,240,0,18), Position = UDim2.new(0,13,0,8), BackgroundTransparency = 1, TextColor3 = T.t2, Font = F.SemiBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, rpmRow)
+local rpmLbl   = inst("TextLabel", {Text = "8000rpm", Size = UDim2.new(0,100,0,18), Position = UDim2.new(1,-112,0,8), BackgroundTransparency = 1, TextColor3 = T.t, Font = F.Bold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Right}, rpmRow)
+local rpmTrk   = inst("Frame",    {Size = UDim2.new(1,-26,0,3), Position = UDim2.new(0,13,0,38), BackgroundColor3 = T.s4, BorderSizePixel = 0}, rpmRow)
+addCorner(99, rpmTrk)
+local rpmFill  = inst("Frame", {Size = UDim2.new(0.333,0,1,0), BackgroundColor3 = T.acc, BorderSizePixel = 0}, rpmTrk); addCorner(99,rpmFill)
+local rpmThumb = inst("Frame", {Size = UDim2.new(0,13,0,13), Position = UDim2.new(0.333,-6,0.5,-6), BackgroundColor3 = T.acc, BorderSizePixel = 0}, rpmTrk); addCorner(99,rpmThumb)
+local rpmHit   = inst("TextButton", {Size = UDim2.new(1,0,0,22), Position = UDim2.new(0,0,0,-10), BackgroundTransparency = 1, Text = "", BorderSizePixel = 0}, rpmTrk)
+
+local hpDrag = false
+local function updHP(px)
+    local rel = math.clamp((px - hpTrk.AbsolutePosition.X) / hpTrk.AbsoluteSize.X, 0, 1)
+    local val = math.floor(100 + rel*1900 + 0.5)
+    local p2  = (val-100)/1900
+    hpFill.Size = UDim2.new(p2,0,1,0); hpThumb.Position = UDim2.new(p2,-6,0.5,-6)
+    hpLbl.Text = val.."hp"; cfg.HPOverride = val; updateStats()
+end
+hpHit.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        hpDrag = true; updHP(i.Position.X)
+    end
+end)
+hpHit.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        hpDrag = false
+    end
+end)
+UserInputService.InputChanged:Connect(function(i)
+    if hpDrag and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+        updHP(i.Position.X)
+    end
+end)
+
+local rpmDrag = false
+local function updRPM(px)
+    local rel = math.clamp((px - rpmTrk.AbsolutePosition.X) / rpmTrk.AbsoluteSize.X, 0, 1)
+    local val = math.floor(4000 + rel*12000 + 0.5)
+    val = math.floor(val/100)*100
+    local p2 = (val-4000)/12000
+    rpmFill.Size = UDim2.new(p2,0,1,0); rpmThumb.Position = UDim2.new(p2,-6,0.5,-6)
+    rpmLbl.Text = val.."rpm"; cfg.MaxRPM = val
+end
+rpmHit.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        rpmDrag = true; updRPM(i.Position.X)
+    end
+end)
+rpmHit.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        rpmDrag = false
+    end
+end)
+UserInputService.InputChanged:Connect(function(i)
+    if rpmDrag and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+        updRPM(i.Position.X)
+    end
+end)
+
+mkToggle("Stack turbo + supercharger", nil, false, P.Engine, 10, function(v) cfg.StackBoost = v end)
+mkLabel("Drivetrain", P.Engine, 11)
+mkPickGrid({
+    {"RWD",  T.t,   "Rear-wheel drive",  "Default"},
+    {"AWD",  T.t2,  "All-wheel drive",   "Upgrade"},
+    {"FWD",  T.t3,  "Front-wheel drive", "Swap"},
+    {"RWD+", T.acc, "RWD tuned",         "Performance"},
+}, P.Engine, 12, function(_, item) cfg.Drivetrain = item[1] end)
+
+-- ─── HANDLING ──────────────────────────────────────────────────────────────
+mkLabel("Suspension", P.Handling, 1)
+mkSlider("Front camber",    -60, 10, -20, "°",    P.Handling, 2, function(v) cfg.FCamber = v/10 end)
+mkSlider("Rear camber",     -60, 10, -25, "°",    P.Handling, 3, function(v) cfg.RCamber = v/10 end)
+mkLabel("Wheel offset", P.Handling, 4)
+mkSlider("Front axle offset", -20, 20, 0, " mm", P.Handling, 5, function(v) cfg.FOffset = v end)
+mkSlider("Rear axle offset",  -20, 20, 0, " mm", P.Handling, 6, function(v) cfg.ROffset = v end)
+mkLabel("Tires", P.Handling, 7)
+mkModRow("🏁","Tire grip","Stage 1 · 1.0× traction",5,P.Handling,8,function(s) cfg.TireStage=s; updateStats() end)
+
+-- ─── BRAKES ────────────────────────────────────────────────────────────────
+mkLabel("Brake force", P.Brakes, 1)
+local bkFrame = inst("Frame", {Size = UDim2.new(1,-24,0,70), BackgroundColor3 = T.s2, BorderSizePixel = 0, LayoutOrder = 2}, P.Brakes)
+addCorner(10,bkFrame); addStroke(T.line,1,bkFrame)
+
+local function makePerfBar(label, yPos, parent)
+    inst("TextLabel", {Text = label, Size = UDim2.new(0,150,0,15), Position = UDim2.new(0,13,0,yPos), BackgroundTransparency = 1, TextColor3 = T.t2, Font = F.SemiBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left}, parent)
+    local vl  = inst("TextLabel", {Text = "1.00×", Size = UDim2.new(0,90,0,15), Position = UDim2.new(1,-103,0,yPos), BackgroundTransparency = 1, TextColor3 = T.t, Font = F.Bold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right}, parent)
+    local trk = inst("Frame", {Size = UDim2.new(1,-26,0,3), Position = UDim2.new(0,13,0,yPos+18), BackgroundColor3 = T.s4, BorderSizePixel = 0}, parent)
+    addCorner(99,trk)
+    local fl  = inst("Frame", {Size = UDim2.new(0,0,1,0), BackgroundColor3 = T.acc, BorderSizePixel = 0}, trk)
+    addCorner(99,fl)
+    return vl, fl
+end
+
+local bkVal, bkFill = makePerfBar("Brake force", 8,  bkFrame)
+local hbVal, hbFill = makePerfBar("Handbrake",   38, bkFrame)
+
+mkModRow("🛑","Brake upgrade","Stage 1 · 1.00× force",5,P.Brakes,3,function(s)
+    cfg.BrakeStage = s
+    local m = MULT.brake[s]
+    bkVal.Text  = string.format("%.2f×",m)
+    bkFill.Size = UDim2.new(m/MULT.brake[5],0,1,0)
+end)
+mkModRow("🅿","Handbrake upgrade","Stage 1 · 1.00× force",5,P.Brakes,4,function(s)
+    cfg.PBrakeStage = s
+    local m = MULT.handbrake[s]
+    hbVal.Text  = string.format("%.2f×",m)
+    hbFill.Size = UDim2.new(math.clamp(m/MULT.handbrake[5],0,1),0,1,0)
+end)
+
+-- ─── PAINT ─────────────────────────────────────────────────────────────────
+local COLORS = {
+    {Color3.fromHex("111111"),"Midnight black","#111111"},
+    {Color3.fromHex("1a1a2e"),"Deep navy","#1a1a2e"},
+    {Color3.fromHex("e63946"),"Racing red","#e63946"},
+    {Color3.fromHex("f5c518"),"Championship yellow","#f5c518"},
+    {Color3.fromHex("2d6a4f"),"Racing green","#2d6a4f"},
+    {Color3.fromHex("4f8ef7"),"Electric blue","#4f8ef7"},
+    {Color3.fromHex("f0f0f0"),"Glacier white","#f0f0f0"},
+    {Color3.fromHex("6c6c6c"),"Gunmetal","#6c6c6c"},
+    {Color3.fromHex("d4a017"),"Satin gold","#d4a017"},
+    {Color3.fromHex("ff6b35"),"Sunset orange","#ff6b35"},
+    {Color3.fromHex("9b5de5"),"Ultraviolet","#9b5de5"},
+    {Color3.fromHex("00b4d8"),"Cyan racer","#00b4d8"},
+    {Color3.fromHex("ff006e"),"Neon pink","#ff006e"},
+    {Color3.fromHex("3a3a3a"),"Stealth grey","#3a3a3a"},
+}
+
+mkLabel("Body color", P.Paint, 1)
+local cprev, cname, chex = mkColorInfo(P.Paint, 2)
+mkColorGrid(COLORS, P.Paint, 3, function(_, entry)
+    cfg.BodyColor = entry[1]; cprev.BackgroundColor3 = entry[1]; cname.Text = entry[2]; chex.Text = entry[3]
+end)
+mkLabel("Finish type", P.Paint, 4)
+mkPickGrid({
+    {"Gloss",  T.t,   "Gloss",        "Active"},
+    {"Matte",  T.t2,  "Matte",        "Common"},
+    {"Carbon", T.t2,  "Carbon fibre", "Premium"},
+    {"Chrome", T.acc, "Chrome",       "Rare"},
+}, P.Paint, 5, function(_, item) cfg.FinishType = item[1] end)
+
+-- ─── EXHAUST ───────────────────────────────────────────────────────────────
+mkLabel("Muffler", P.Exhaust, 1)
+mkModRow("🔊","Muffler stage","Stage 1 · stock",3,P.Exhaust,2,function(s) cfg.ExhaustMuffler=s end)
+mkLabel("EQ tuning", P.Exhaust, 3)
+mkSlider("High",-10,10,0," dB",P.Exhaust,4,function(v) cfg.HighEQ=v end)
+mkSlider("Mid", -10,10,0," dB",P.Exhaust,5,function(v) cfg.MidEQ=v end)
+mkSlider("Low", -10,10,0," dB",P.Exhaust,6,function(v) cfg.LowEQ=v end)
+mkLabel("Backfire", P.Exhaust, 7)
+mkModRow("💥","Backfire stage","None · off",4,P.Exhaust,8,function(s) cfg.BackfireStage=s-1 end)
+
+-- ─── TRAFFIC ───────────────────────────────────────────────────────────────
+mkLabel("NPC collision", P.Traffic, 1)
+
+do
+    local row = inst("Frame", {Size = UDim2.new(1,-24,0,72), BackgroundColor3 = T.s2, BorderSizePixel = 0, LayoutOrder = 2}, P.Traffic)
+    addCorner(10,row); addStroke(T.line,1,row)
+    inst("TextLabel", {Text = "Ghost NPC cars", Size = UDim2.new(0,280,0,20), Position = UDim2.new(0,13,0,8), BackgroundTransparency = 1, TextColor3 = T.t, Font = F.Bold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left}, row)
+    inst("TextLabel", {Text = "You drive through NPC vehicles — held every frame via Heartbeat", Size = UDim2.new(0,280,0,28), Position = UDim2.new(0,13,0,27), BackgroundTransparency = 1, TextColor3 = T.t3, Font = F.Regular, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left}, row)
+    local track = inst("TextButton", {Size = UDim2.new(0,40,0,20), Position = UDim2.new(1,-52,0.5,-10), BackgroundColor3 = T.s4, Text = "", BorderSizePixel = 0}, row)
+    addCorner(99,track)
+    local knob = inst("Frame", {Size = UDim2.new(0,14,0,14), Position = UDim2.new(0,3,0.5,-7), BackgroundColor3 = T.t3, BorderSizePixel = 0}, track)
+    addCorner(99,knob)
+    local state = false
+    track.MouseButton1Click:Connect(function()
+        state = not state
+        track.BackgroundColor3 = state and T.acc or T.s4
+        knob.Position          = state and UDim2.new(1,-17,0.5,-7) or UDim2.new(0,3,0.5,-7)
+        knob.BackgroundColor3  = state and T.bg or T.t3
+        cfg.TrafficGhost = state
+        setTrafficGhost(state)
+        showToast(state and "  ✓  Ghost traffic on" or "  ↺  Ghost traffic off", state and T.grn or T.t2)
+    end)
+end
+
+mkLabel("Traffic density", P.Traffic, 3)
+
+local pctLbl
+local densityRow = inst("Frame", {Size = UDim2.new(1,-24,0,78), BackgroundColor3 = T.s2, BorderSizePixel = 0, LayoutOrder = 4}, P.Traffic)
+addCorner(10,densityRow); addStroke(T.line,1,densityRow)
+inst("TextLabel", {Text = "NPC car density", Size = UDim2.new(0,240,0,18), Position = UDim2.new(0,13,0,8), BackgroundTransparency = 1, TextColor3 = T.t2, Font = F.SemiBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, densityRow)
+inst("TextLabel", {Text = "Destroys existing cars above the cap immediately", Size = UDim2.new(0,280,0,14), Position = UDim2.new(0,13,0,26), BackgroundTransparency = 1, TextColor3 = T.t3, Font = F.Regular, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left}, densityRow)
+pctLbl = inst("TextLabel", {Text = "100%", Size = UDim2.new(0,80,0,18), Position = UDim2.new(1,-92,0,8), BackgroundTransparency = 1, TextColor3 = T.t, Font = F.Bold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Right}, densityRow)
+
+local denTrk   = inst("Frame",      {Size = UDim2.new(1,-26,0,3), Position = UDim2.new(0,13,0,52), BackgroundColor3 = T.s4, BorderSizePixel = 0}, densityRow)
+addCorner(99,denTrk)
+local denFill  = inst("Frame",      {Size = UDim2.new(1,0,1,0),  BackgroundColor3 = T.acc, BorderSizePixel = 0}, denTrk); addCorner(99,denFill)
+local denThumb = inst("Frame",      {Size = UDim2.new(0,13,0,13), Position = UDim2.new(1,-6,0.5,-6), BackgroundColor3 = T.acc, BorderSizePixel = 0}, denTrk); addCorner(99,denThumb)
+local denHit   = inst("TextButton", {Size = UDim2.new(1,0,0,22), Position = UDim2.new(0,0,0,-10), BackgroundTransparency = 1, Text = "", BorderSizePixel = 0}, denTrk)
+
+local denDrag = false
+local function updDensity(px)
+    local rel = math.clamp((px - denTrk.AbsolutePosition.X) / denTrk.AbsoluteSize.X, 0, 1)
+    local val = math.floor(rel*100+0.5)
+    denFill.Size = UDim2.new(rel,0,1,0); denThumb.Position = UDim2.new(rel,-6,0.5,-6)
+    pctLbl.Text    = val.."%"
+    cfg.TrafficPct = val
+    local folder = Workspace:FindFirstChild("TrafficFolder") or Workspace:FindFirstChild("Traffic") or Workspace:FindFirstChild("NPCFolder")
+    if folder then
+        folder:SetAttribute("SpawnCap", val)
+        local children    = folder:GetChildren()
+        local targetCount = math.floor(#children * (val/100))
+        for i = #children, targetCount+1, -1 do
+            if children[i] and children[i]:IsA("Model") then children[i]:Destroy() end
+        end
+    end
+end
+denHit.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        denDrag = true; updDensity(i.Position.X)
+    end
+end)
+denHit.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        denDrag = false
+    end
+end)
+UserInputService.InputChanged:Connect(function(i)
+    if denDrag and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+        updDensity(i.Position.X)
+    end
+end)
+
+mkLabel("Remove traffic", P.Traffic, 5)
+
+local delBtn = inst("TextButton", {
+    Text = "Delete all NPC cars now", Size = UDim2.new(1,-24,0,44),
+    BackgroundColor3 = T.s2, TextColor3 = T.red, Font = F.Bold, TextSize = 13,
+    BorderSizePixel = 0, LayoutOrder = 6,
+}, P.Traffic)
+addCorner(10,delBtn); addStroke(T.line,1,delBtn)
+delBtn.MouseButton1Click:Connect(function()
+    deleteAllTraffic()
+    showToast("  ✓  All traffic removed", T.grn)
+end)
+
+mkToggle("Block future spawns", "Disables the LocalTrafficRenderer so no new cars appear", false, P.Traffic, 7, function(v)
+    local scripts = lp:FindFirstChild("PlayerScripts")
+    if scripts then
+        for _, s in ipairs(scripts:GetDescendants()) do
+            if s:IsA("LocalScript") and s.Name:lower():find("traffic") then
+                s.Disabled = v
+            end
+        end
+    end
+    showToast(v and "  ✓  Traffic spawning blocked" or "  ↺  Traffic spawning restored", v and T.grn or T.t2)
+end)
+
+-- ─── EXPLOIT ───────────────────────────────────────────────────────────────
+mkLabel("Vehicle", P.Exploit, 1)
+mkToggle("Infinite nitro", "Keeps nitro/boost fuel at 100 every frame", false, P.Exploit, 2, function(v)
+    cfg.InfNitro = v
+    setInfNitro(v)
+    showToast(v and "  ✓  Infinite nitro on" or "  ↺  Nitro off", v and T.grn or T.t2)
+end)
+mkToggle("Speed lock", "Caps your car's velocity to the value below", false, P.Exploit, 3, function(v)
+    cfg.SpeedLock = v
+    setSpeedLock(v)
+    showToast(v and "  ✓  Speed lock on" or "  ↺  Speed lock off", v and T.grn or T.t2)
+end)
+mkSlider("Speed cap", 10, 500, 200, " mph", P.Exploit, 4, function(v)
+    cfg.SpeedLockVal = v
+end)
+
+-- ─── VIEWPORT ──────────────────────────────────────────────────────────────
+local vpClone    = nil
+local orbitAngle = 0
+local lastCar    = nil
+
+local function rebuildVP()
+    for _, c in ipairs(VP:GetChildren()) do
+        if not c:IsA("Camera") then c:Destroy() end
+    end
+    vpClone = nil
+
+    local car = getMyCar()
+    vpNoCarLabel.Visible = (car == nil)
+    if not car then return end
+
+    local m = Instance.new("Model")
+    m.Name = "VPCar"
+
+    for _, p in ipairs(car:GetDescendants()) do
+        if p:IsA("BasePart") and p.Name ~= "DriveSeat" then
+            local c = p:Clone()
+            c.Anchored   = true
+            c.CanCollide = false
+            c.CastShadow = false
+            c.Parent     = m
+        end
+    end
+
+    if #m:GetChildren() == 0 then
+        m:Destroy()
+        vpNoCarLabel.Visible = true
+        return
+    end
+
+    m.Parent = VP
+    vpClone  = m
+
+    local cf, sz = m:GetBoundingBox()
+    local maxDim = math.max(sz.X, sz.Y, sz.Z)
+    local dist   = maxDim / (2 * math.tan(math.rad(VPCam.FieldOfView/2))) * 1.4
+    orbitAngle   = 0
+    VPCam.CFrame = CFrame.new(Vector3.new(dist, sz.Y*0.3, 0), cf.Position)
+    CarNameLabel.Text = car.Name
+end
+
+local minimised = false
+local function setMinimised(v)
+    minimised        = v
+    Scroll.Visible   = not v
+    Footer.Visible   = not v
+    StatRow.Visible  = not v
+    VPHolder.Visible = not v
+    TabBar.Visible   = not v
+    Main.Size        = v and UDim2.new(0,500,0,60) or UDim2.new(0,500,0,700)
+    MinBtn.Text      = v and "□" or "−"
+end
+MinBtn.MouseButton1Click:Connect(function() setMinimised(not minimised) end)
+
+RunService.RenderStepped:Connect(function(dt)
+    if minimised then return end
+
+    local car = getMyCar()
+    if car ~= lastCar then
+        lastCar = car
+        rebuildVP()
+        CarNameLabel.Text = car and car.Name or "No vehicle"
+    end
+
+    if vpClone and vpClone.Parent == VP then
+        orbitAngle = orbitAngle + dt * 0.38
+        local cf, sz = vpClone:GetBoundingBox()
+        local maxDim = math.max(sz.X, sz.Y, sz.Z)
+        local dist   = maxDim / (2 * math.tan(math.rad(VPCam.FieldOfView/2))) * 1.4
+        local ox = math.sin(orbitAngle) * dist
+        local oz = math.cos(orbitAngle) * dist
+        VPCam.CFrame = CFrame.new(Vector3.new(ox, sz.Y*0.3, oz), cf.Position)
+    end
+
+    if car then
+        local boost = car:GetAttribute("Boost") or car:GetAttribute("PSI") or (cfg.TurboStage * 6)
+        statRefs[4].val.Text = tostring(math.floor((boost or 0)*10)/10)
+    end
+end)
+
+switchTab("Engine")
+updateStats()
