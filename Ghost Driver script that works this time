@@ -1,4 +1,3 @@
-
 local Arqel = loadstring(game:HttpGet("https://cdn.jnkie.com/arquelui.lua"))()
 
 Arqel.Appearance.Title = "Junkie"
