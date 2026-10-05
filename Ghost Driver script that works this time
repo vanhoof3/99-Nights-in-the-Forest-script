@@ -3,7 +3,7 @@ local Arqel = loadstring(game:HttpGet("https://cdn.jnkie.com/arquelui.lua"))()
 
 Arqel.Appearance.Title = "Junkie"
 Arqel.Appearance.Icon = "rbxassetid://134697043118282"
-Arqel.Links.Discord = "Discord.gg/jnkie"
+Arqel.Links.Discord = "https://discord.gg/dArDgHgqk"
 Arqel.Storage.FileName = "Jnkie_key"
 -- Arqel.Options.KeylessUI = true
 
