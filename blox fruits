@@ -21,17 +21,6 @@ Arqel.Theme.Success = Color3.fromRGB(0, 220, 180)
 Arqel.Theme.Error = Color3.fromRGB(255, 70, 90)
 Arqel.Theme.StatusIdle = Color3.fromRGB(120, 100, 200)
 
-
-Arqel.Shop = {
-    Enabled = true,
-    Icon = "",
-    Title = "Get Premium",
-    Subtitle = "Instant delivery • 24/7 support",
-    ButtonText = "Buy",
-    Link = "jnkie.com"
-}
-
-
 Arqel:LaunchJunkie({
     Service = "Blox fruits",
     Identifier = "1212230",
