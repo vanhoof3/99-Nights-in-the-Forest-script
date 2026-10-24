@@ -1,0 +1,179 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+
+local AllowedUserIds = {
+    [123456789] = true,   -- replace with YOUR UserId
+}
+
+local function isOwner(player)
+    if AllowedUserIds[player.UserId] then
+        return true
+    end
+    if game.CreatorType == Enum.CreatorType.User and game.CreatorId ~= 0 then
+        return player.UserId == game.CreatorId
+    end
+    return false
+end
+
+if not isOwner(LocalPlayer) then return end
+
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+
+local Settings = {
+    Enabled = false,
+    HoldToAim = true,
+    AimKey = Enum.UserInputType.MouseButton2,
+    TargetPart = "Head",
+    FOV = 150,
+    Smoothness = 0.25, --the lower it is the smoother it is
+    TeamCheck = true,
+    WallCheck = true,
+    ShowFOV = true,
+}
+
+local aiming = false
+
+-- FOV circle
+pcall(function()
+    fovCircle = Drawing.new("Circle")
+    fovCircle.Thickness = 1
+    fovCircle.NumSides = 64
+    fovCircle.Filled = false
+    fovCircle.Color = Color3.fromRGB(255, 255, 255)
+    fovCircle.Visible = false
+end)
+
+local function isVisible(part)
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    params.FilterDescendantsInstances = { LocalPlayer.Character, part.Parent }
+    local origin = Camera.CFrame.Position
+    local result = Workspace:Raycast(origin, part.Position - origin, params)
+    return result == nil
+end
+
+local function getClosestTarget()
+    local closest, shortest = nil, Settings.FOV
+    local center = Camera.ViewportSize / 2
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            if not (Settings.TeamCheck and player.Team == LocalPlayer.Team) then
+                local hum = player.Character:FindFirstChildOfClass("Humanoid")
+                local part = player.Character:FindFirstChild(Settings.TargetPart)
+                if hum and hum.Health > 0 and part then
+                    local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    if onScreen then
+                        local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                        if dist < shortest and (not Settings.WallCheck or isVisible(part)) then
+                            shortest = dist
+                            closest = part
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return closest
+end
+
+UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then return end
+    if input.UserInputType == Settings.AimKey then
+        aiming = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Settings.AimKey then
+        aiming = false
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    Camera = Workspace.CurrentCamera
+
+    if fovCircle then
+        fovCircle.Visible = Settings.Enabled and Settings.ShowFOV
+        fovCircle.Radius = Settings.FOV
+        fovCircle.Position = Camera.ViewportSize / 2
+    end
+
+    if not Settings.Enabled then return end
+    if Settings.HoldToAim and not aiming then return end
+
+    local target = getClosestTarget()
+    if target then
+        local goal = CFrame.lookAt(Camera.CFrame.Position, target.Position)
+        Camera.CFrame = Camera.CFrame:Lerp(goal, Settings.Smoothness)
+    end
+end)
+
+local Window = Rayfield:CreateWindow({
+    Name = "Owner Aim Assist",
+    LoadingTitle = "Owner Tools",
+    LoadingSubtitle = "Loading...",
+    ConfigurationSaving = { Enabled = false },
+    KeySystem = false,
+})
+
+local Tab = Window:CreateTab("Aim Assist", 4483362458)
+
+Tab:CreateToggle({
+    Name = "Enabled",
+    CurrentValue = false,
+    Callback = function(v) Settings.Enabled = v end,
+})
+
+Tab:CreateToggle({
+    Name = "Hold To Aim (Right Mouse)",
+    CurrentValue = true,
+    Callback = function(v) Settings.HoldToAim = v end,
+})
+
+Tab:CreateDropdown({
+    Name = "Target Part",
+    Options = { "Head", "HumanoidRootPart", "UpperTorso" },
+    CurrentOption = { "Head" },
+    MultipleOptions = false,
+    Callback = function(opt) Settings.TargetPart = opt[1] end,
+})
+
+Tab:CreateSlider({
+    Name = "FOV Radius",
+    Range = { 20, 500 },
+    Increment = 5,
+    CurrentValue = 150,
+    Callback = function(v) Settings.FOV = v end,
+})
+
+Tab:CreateSlider({
+    Name = "Smoothness (higher = snappier)",
+    Range = { 1, 100 },
+    Increment = 1,
+    CurrentValue = 25,
+    Callback = function(v) Settings.Smoothness = v / 100 end,
+})
+
+Tab:CreateToggle({
+    Name = "Team Check",
+    CurrentValue = true,
+    Callback = function(v) Settings.TeamCheck = v end,
+})
+
+Tab:CreateToggle({
+    Name = "Wall Check",
+    CurrentValue = true,
+    Callback = function(v) Settings.WallCheck = v end,
+})
+
+Tab:CreateToggle({
+    Name = "Show FOV Circle",
+    CurrentValue = true,
+    Callback = function(v) Settings.ShowFOV = v end,
+})
